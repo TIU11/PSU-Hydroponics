@@ -8,8 +8,8 @@ void setup() {
   pinMode(sol,OUTPUT);
   pinMode(water,INPUT);
   pinMode(nut,OUTPUT);
-  //digitalWrite(pump,0);
-  //digitalWrite(sol,0);
+  digitalWrite(pump,0);
+  digitalWrite(sol,0);
   
   digitalWrite(nut,0);
   delay(2000);
@@ -34,11 +34,11 @@ void addWater(){
       delay(5000);
       digitalWrite(sol,1);
 
-      delay(30000);
+      delay(40000);
       
       digitalWrite(sol,0);
       
-      delay(10000);
+      delay(7000);
   }
 }
 
