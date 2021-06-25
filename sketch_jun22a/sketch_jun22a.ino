@@ -3,6 +3,8 @@ int pump = 3;
 int sol = 4;
 int water = 5;
 int nut = 6;
+int sensorPin = 2;
+int sensorInterrupt = 0;  // 0 = digital pin 2
 
 // timings and other stuff:
 int how_many_nutrients = 5 // in mL
@@ -13,6 +15,15 @@ int floodWait =  3 * 60 * 60 * 1000; // 3 Hours (in miliseconds), time between f
 int interval = 12 * 60 * 60 * 1000; //  12 hours (in miliseconds), time between acvtive and inactive periods
 unsigned long previousMillis = 0; //  Tracks the time since last event fired
 bool active_period = true;
+
+// The hall-effect flow sensor outputs approximately 4.5 pulses per second per
+// litre/minute of flow. These are variables for later
+float calibrationFactor = 4.5;
+volatile byte pulseCount = 0;
+float flowRate = 0.0;
+unsigned int flowMilliLitres = 0;
+unsigned int totalMilliLitres = 0;
+unsigned long old_time_for_hall_sensor = 0;
 
 void setup() {
   // defines if the pins are taking in or letting out signals
@@ -29,6 +40,18 @@ void setup() {
   digitalWrite(nut, 0);
   delay(time_for_nut_pump);
   digitalWrite(nut, 1);
+
+  Serial.begin(9600); //for communicating data
+
+  // defines hall_efect sensor pins and turns it on
+  pinMode(sensorPin, INPUT);
+  digitalWrite(sensorPin, HIGH);
+
+
+  // The Hall-effect sensor is connected to pin 2 which uses interrupt 0.
+  // Configured to trigger on a FALLING state change (transition from HIGH
+  // state to LOW state)
+  attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
 
 }
 
@@ -65,11 +88,66 @@ void loop() {
 }
 
 void addWater() {
+  //
+
+
   // keeps filling the planet container
   while (digitalRead(water) == 1){ // keep looping this code untill water hits the water sensor
     // keep the pump on and the solenoid valve open
     digitalWrite(pump, 1);
     digitalWrite(sol, 1);
+
+    //code by codebender_cc on instructables --------------------------------------------------------------------------------
+    if((millis() - oldTime) > 1000){    // Only process counters once per second
+
+    // Disable the interrupt while calculating flow rate and sending the value to
+    // the host
+    detachInterrupt(sensorInterrupt);
+
+    // Because this loop may not complete in exactly 1 second intervals we calculate
+    // the number of milliseconds that have passed since the last execution and use
+    // that to scale the output. We also apply the calibrationFactor to scale the output
+    // based on the number of pulses per second per units of measure (litres/minute in
+    // this case) coming from the sensor.
+    flowRate = ((1000.0 / (millis() - oldTime)) * pulseCount) / calibrationFactor;
+
+    // Note the time this processing pass was executed. Note that because we've
+    // disabled interrupts the millis() function won't actually be incrementing right
+    // at this point, but it will still return the value it was set to just before
+    // interrupts went away.
+    oldTime = millis();
+
+    // Divide the flow rate in litres/minute by 60 to determine how many litres have
+    // passed through the sensor in this 1 second interval, then multiply by 1000 to
+    // convert to millilitres.
+    flowMilliLitres = (flowRate / 60) * 1000;
+
+    // Add the millilitres passed in this second to the cumulative total
+    totalMilliLitres += flowMilliLitres;
+
+    unsigned int frac;
+
+    // Print the flow rate for this second in litres / minute
+    Serial.print("Flow rate: ");
+    Serial.print(int(flowRate));  // Print the integer part of the variable
+    Serial.print("L/min");
+    Serial.print("\t"); 		  // Print tab space
+
+    // Print the cumulative total of litres flowed since starting
+    Serial.print("Output Liquid Quantity: ");
+    Serial.print(totalMilliLitres);
+    Serial.println("mL");
+    Serial.print("\t"); 		  // Print tab space
+	  Serial.print(totalMilliLitres/1000);
+	  Serial.print("L");
+
+
+    // Reset the pulse counter so we can start incrementing again
+    pulseCount = 0;
+
+    // Enable the interrupt again now that we've finished sending output
+    attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
+    //---------------------------------------------------------------------------------------------------------------------
   }
   // turn the pump off and close the solenoid valve
   digitalWrite(pump, 0);
@@ -84,4 +162,10 @@ void addWater() {
   digitalWrite(sol, 0); // close solenoid valve to stop draining
 
   delay(floodWait); // waits for a certain amount of time till this code might run again
+}
+
+void pulseCounter() // for other code to work
+{
+  // Increment the pulse counter
+  pulseCount++;
 }
