@@ -1,6 +1,9 @@
 import time
 from machine import Pin
-import logging
+#import logging
+import uasyncio as asyncio
+from WaterPump.WaterPumps.flowMeters import flowMeter
+
 #-------------------------------------------------------------------------------------------------------------------------------------
 # pins to controll each hardware device and defines if the pins are taking in or letting out signals
 
@@ -58,19 +61,22 @@ def addWater():
 
         '''if hall_sensor_data.value() == 1:
             flowCount += 1'''
-        mainFlowMeter.monitorFlowMeter()
+        
+        main_loop = asyncio.get_event_loop()
 
+        main_loop.create_task(mainFlowMeter.monitorFlowMeter())
 
+        main_loop.run_forever()
 
     #turn the pump off and close the solenoid valve
-    ending_time = time.time()
+    main_loop.close()
 
     '''flowCount = flowCount/(ending_time-starting_time)
     flowCount = (flowCount* 60)/4.8'''
     pump.off()
     sol.off()
     hall_sensor_flow.off()
-    print(str(flowCount) + " l/m")
+    # print(str(flowCount) + " l/m")
 
     time.sleep(floodTime) #keeps roots wet for the time we defined earlier
 
@@ -84,7 +90,10 @@ def addWater():
 
 
 
-#--------------------------------------------------------------------------------------------------------------------------------------
+main_loop = asyncio.get_event_loop()
+
+#load flow monitor task
+main_loop.create_task(mainFlowMeter.monitorFlowMeter())#--------------------------------------------------------------------------------------------------------------------------------------
 # always loop this code over and over again
 while there_is_power:
 
