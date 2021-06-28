@@ -1,5 +1,6 @@
 import time
 from machine import Pin
+import logging
 #-------------------------------------------------------------------------------------------------------------------------------------
 # pins to controll each hardware device and defines if the pins are taking in or letting out signals
 
@@ -19,8 +20,10 @@ floodWait =  3 #* 60 * 60 # 3 Hours (in seconds), time between floods
 interval = 12 * 60 * 60 #  12 hours (in seconds), time between acvtive and inactive periods
 active_period = "yes" #to give the plant water or not
 there_is_power = True #to make the program allways run
-global flow_per_second
-flow_per_second = 0
+
+mainFlowMeter = flowMeter(flowPin=5, rate=4.8)
+global flowCount
+flowCount = 0
 
 
 
@@ -34,30 +37,40 @@ nut.on()
 time.sleep(time_for_nut_pump)
 nut.off()
 
+#--------------------------------------------------------------------------------------------------------------------------------------
 time_last_checked = time.time()
-
+def callbackflow(p):
+    """Add on to Counter """
+    global flowCount
+    flowCount += 1
+    print("""callback count: %s""" % (flowCount))
 #--------------------------------------------------------------------------------------------------------------------------------------
 def addWater():
     global flow_per_second
     #keeps filling the planet container
-    starting_time = time.time()
+
+    mainFlowMeter.counterPin.irq(trigger=mainFlowMeter.counterPin.IRQ_RISING, handler=callbackflow)
     while water.value() == 1: #keep looping this code untill water hits the water sensor
         #keep the pump on and the solenoid valve open
         pump.on()
         sol.on()
         hall_sensor_flow.on()
-        if hall_sensor_data.value() == 0:
-            flow_per_second += 1
-        
+
+        '''if hall_sensor_data.value() == 1:
+            flowCount += 1'''
+        mainFlowMeter.monitorFlowMeter()
+
+
 
     #turn the pump off and close the solenoid valve
     ending_time = time.time()
-    flow_per_second = flow_per_second/(ending_time-starting_time)
-    flow_per_second = (flow_per_second* 60)/4.8
+
+    '''flowCount = flowCount/(ending_time-starting_time)
+    flowCount = (flowCount* 60)/4.8'''
     pump.off()
     sol.off()
     hall_sensor_flow.off()
-    print(str(flow_per_second) + " l/m")
+    print(str(flowCount) + " l/m")
 
     time.sleep(floodTime) #keeps roots wet for the time we defined earlier
 
@@ -74,7 +87,7 @@ def addWater():
 #--------------------------------------------------------------------------------------------------------------------------------------
 # always loop this code over and over again
 while there_is_power:
-    
+
     current_time = time.time() # get current timer
 
     if active_period == "yes": # whether or not we are giving the plant water for 12 hours (day-night cycle)
@@ -102,5 +115,3 @@ while there_is_power:
 
         else: #if it hasnt been 12 hours yet....
             pass #do nothing!!!!
-
-
