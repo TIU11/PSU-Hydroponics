@@ -7,7 +7,7 @@ int sensorPin = 2;
 int sensorInterrupt = 0;  // 0 = digital pin 2
 
 // timings and other stuff:
-int how_many_nutrients = 5 // in mL
+int how_many_nutrients = 5; // in mL
 int time_for_nut_pump = how_many_nutrients * 1000; // peristaltic pump dispenses 1 ml per second (1000 is in miliseconds)
 
 int floodTime = 5 * 60 * 1000; // 5 minutes (in miliseconds), time water stays on roots of plantsbefore draining
@@ -24,6 +24,12 @@ float flowRate = 0.0;
 unsigned int flowMilliLitres = 0;
 unsigned int totalMilliLitres = 0;
 unsigned long old_time_for_hall_sensor = 0;
+
+void pulseCounter() // for other code to work
+{
+  // Increment the pulse counter
+  pulseCount++;
+}
 
 void setup() {
   // defines if the pins are taking in or letting out signals
@@ -55,42 +61,7 @@ void setup() {
 
 }
 
-void loop() {
-  unsigned long currentMillis = millis();  // Get snapshot of time
-
-  if (active_period == true){ // whether or not we are giving the plant water for 12 hours (day-night cycle)
-    // How much time has passed, accounting for rollover with subtraction! (https://www.baldengineer.com/arduino-how-do-you-reset-millis.html)
-    // Stops the water cycling for 12 hours if its been running for 12 hours
-    if ((unsigned long)(currentMillis - previousMillis) >= interval) {
-      active_period = false;
-      previousMillis = currentMillis; //  resets the time we are counting to
-    }
-    //if it hasnt been 12 hours yet....
-    else{
-      addWater(); // start water cycle that goes every 3 hours (or whatever you change it to)
-    }
-
-  else{
-    // How much time has passed, accounting for rollover with subtraction! (https://www.baldengineer.com/arduino-how-do-you-reset-millis.html)
-    // Starts the water cycle again after 12 hours if its been 12 hours
-    if ((unsigned long)(currentMillis - previousMillis) >= interval) {
-      active_period = true;
-      previousMillis = currentMillis; // Resets the time we are counting to
-
-      // Turns on and off nutrient pump for predefined amount of time
-      digitalWrite(nut, 0);
-      delay(time_for_nut_pump);
-      digitalWrite(nut, 1);
-    }
-
-  }
-
-}
-
 void addWater() {
-  //
-
-
   // keeps filling the planet container
   while (digitalRead(water) == 1){ // keep looping this code untill water hits the water sensor
     // keep the pump on and the solenoid valve open
@@ -98,7 +69,7 @@ void addWater() {
     digitalWrite(sol, 1);
 
     //code by codebender_cc on instructables --------------------------------------------------------------------------------
-    if((millis() - oldTime) > 1000){    // Only process counters once per second
+    if((millis() - old_time_for_hall_sensor) > 1000){    // Only process counters once per second
 
     // Disable the interrupt while calculating flow rate and sending the value to
     // the host
@@ -109,13 +80,13 @@ void addWater() {
     // that to scale the output. We also apply the calibrationFactor to scale the output
     // based on the number of pulses per second per units of measure (litres/minute in
     // this case) coming from the sensor.
-    flowRate = ((1000.0 / (millis() - oldTime)) * pulseCount) / calibrationFactor;
+    flowRate = ((1000.0 / (millis() - old_time_for_hall_sensor)) * pulseCount) / calibrationFactor;
 
     // Note the time this processing pass was executed. Note that because we've
     // disabled interrupts the millis() function won't actually be incrementing right
     // at this point, but it will still return the value it was set to just before
     // interrupts went away.
-    oldTime = millis();
+    old_time_for_hall_sensor = millis();
 
     // Divide the flow rate in litres/minute by 60 to determine how many litres have
     // passed through the sensor in this 1 second interval, then multiply by 1000 to
@@ -131,15 +102,15 @@ void addWater() {
     Serial.print("Flow rate: ");
     Serial.print(int(flowRate));  // Print the integer part of the variable
     Serial.print("L/min");
-    Serial.print("\t"); 		  // Print tab space
+    Serial.print("\t");       // Print tab space
 
     // Print the cumulative total of litres flowed since starting
     Serial.print("Output Liquid Quantity: ");
     Serial.print(totalMilliLitres);
     Serial.println("mL");
-    Serial.print("\t"); 		  // Print tab space
-	  Serial.print(totalMilliLitres/1000);
-	  Serial.print("L");
+    Serial.print("\t");       // Print tab space
+    Serial.print(totalMilliLitres/1000);
+    Serial.print("L");
 
 
     // Reset the pulse counter so we can start incrementing again
@@ -163,9 +134,36 @@ void addWater() {
 
   delay(floodWait); // waits for a certain amount of time till this code might run again
 }
+}
 
-void pulseCounter() // for other code to work
-{
-  // Increment the pulse counter
-  pulseCount++;
+void loop() {
+  unsigned long currentMillis = millis();  // Get snapshot of time
+
+  if (active_period == true){ // whether or not we are giving the plant water for 12 hours (day-night cycle)
+    // How much time has passed, accounting for rollover with subtraction! (https://www.baldengineer.com/arduino-how-do-you-reset-millis.html)
+    // Stops the water cycling for 12 hours if its been running for 12 hours
+    if ((unsigned long)(currentMillis - previousMillis) >= interval) {
+      active_period = false;
+      previousMillis = currentMillis; //  resets the time we are counting to
+    }
+    //if it hasnt been 12 hours yet....
+    else{
+      addWater(); // start water cycle that goes every 3 hours (or whatever you change it to)
+    }}
+
+  else{
+    // How much time has passed, accounting for rollover with subtraction! (https://www.baldengineer.com/arduino-how-do-you-reset-millis.html)
+    // Starts the water cycle again after 12 hours if its been 12 hours
+    if ((unsigned long)(currentMillis - previousMillis) >= interval) {
+      active_period = true;
+      previousMillis = currentMillis; // Resets the time we are counting to
+
+      // Turns on and off nutrient pump for predefined amount of time
+      digitalWrite(nut, 0);
+      delay(time_for_nut_pump);
+      digitalWrite(nut, 1);
+    }
+
+  }
+
 }
