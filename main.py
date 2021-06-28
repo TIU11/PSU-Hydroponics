@@ -3,7 +3,7 @@ from machine import Pin
 #-------------------------------------------------------------------------------------------------------------------------------------
 # pins to controll each hardware device and defines if the pins are taking in or letting out signals
 pump = Pin(0,Pin.OUT)
-sol = Pin(2,Pin.OUT)
+sol = Pin(1,Pin.OUT)
 water = Pin(4,Pin.IN)
 nut = Pin(5,Pin.OUT)
 
@@ -27,6 +27,32 @@ time.sleep(time_for_nut_pump)
 nut.off()
 
 time_last_checked = time.time()
+
+#--------------------------------------------------------------------------------------------------------------------------------------
+
+def addWater():
+    #keeps filling the planet container
+    while water.value() == 1: #keep looping this code untill water hits the water sensor
+        #keep the pump on and the solenoid valve open
+        pump.on()
+        sol.on()
+
+    #turn the pump off and close the solenoid valve
+    pump.off()
+    sol.off()
+
+    time.sleep(floodTime) #keeps roots wet for the time we defined earlier
+
+    sol.on() #opens the solenoid valve to drain the water
+
+    time.sleep(35) #wait 35 seconds for the water to completly drain
+
+    sol.off() #close solenoid valve to stop draining
+
+    time.sleep(floodWait) #waits for a certain amount of time till this code might run again
+
+
+
 #--------------------------------------------------------------------------------------------------------------------------------------
 # always loop this code over and over again
 while there_is_power:
@@ -59,25 +85,4 @@ while there_is_power:
         else: #if it hasnt been 12 hours yet....
             pass #do nothing!!!!
 
-#--------------------------------------------------------------------------------------------------------------------------------------
 
-def addWater():
-    #keeps filling the planet container
-    while water.value() == 1: #keep looping this code untill water hits the water sensor
-        #keep the pump on and the solenoid valve open
-        pump.on()
-        sol.on()
-
-    #turn the pump off and close the solenoid valve
-    pump.off()
-    sol.off()
-
-    time.sleep(floodTime) #keeps roots wet for the time we defined earlier
-
-    sol.on() #opens the solenoid valve to drain the water
-
-    time.sleep(35) #wait 35 seconds for the water to completly drain
-
-    sol.off() #close solenoid valve to stop draining
-
-    time.sleep(floodWait) #waits for a certain amount of time till this code might run again
