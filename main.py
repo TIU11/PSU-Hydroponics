@@ -2,7 +2,9 @@ import time
 from machine import Pin
 #import logging
 import uasyncio as asyncio
-from WaterPump.WaterPumps.flowMeters import flowMeter
+import sys
+sys.path.append('/WaterPumps')
+from WaterPumps.flowMeters import flowMeter,flowRunData
 
 #-------------------------------------------------------------------------------------------------------------------------------------
 # pins to controll each hardware device and defines if the pins are taking in or letting out signals
@@ -25,6 +27,7 @@ active_period = "yes" #to give the plant water or not
 there_is_power = True #to make the program allways run
 
 mainFlowMeter = flowMeter(flowPin=5, rate=4.8)
+mainFlowData = flowRunData()
 global flowCount
 flowCount = 0
 
@@ -53,6 +56,9 @@ def addWater():
     #keeps filling the planet container
 
     mainFlowMeter.counterPin.irq(trigger=mainFlowMeter.counterPin.IRQ_RISING, handler=callbackflow)
+    main_loop = asyncio.get_event_loop()
+
+    main_loop.create_task(mainFlowMeter.monitorFlowMeter())
     while water.value() == 1: #keep looping this code untill water hits the water sensor
         #keep the pump on and the solenoid valve open
         pump.on()
@@ -61,16 +67,10 @@ def addWater():
 
         '''if hall_sensor_data.value() == 1:
             flowCount += 1'''
-        
-        main_loop = asyncio.get_event_loop()
-
-        main_loop.create_task(mainFlowMeter.monitorFlowMeter())
-
-        main_loop.run_forever()
 
     #turn the pump off and close the solenoid valve
     main_loop.close()
-
+    print(mainFlowData.averageFlowRate())
     '''flowCount = flowCount/(ending_time-starting_time)
     flowCount = (flowCount* 60)/4.8'''
     pump.off()
@@ -124,3 +124,4 @@ while there_is_power:
 
         else: #if it hasnt been 12 hours yet....
             pass #do nothing!!!!
+
