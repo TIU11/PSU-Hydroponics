@@ -4,8 +4,11 @@ from machine import Pin
 # pins to controll each hardware device and defines if the pins are taking in or letting out signals
 pump = Pin(0,Pin.OUT)
 sol = Pin(1,Pin.OUT)
-water = Pin(4,Pin.IN)
-nut = Pin(5,Pin.OUT)
+water = Pin(1,Pin.IN)
+nut = Pin(2,Pin.OUT)
+hall_sensor = Pin(4,Pin.IN,Pin.PULL_DOWN)
+
+callBack = hall_sensor.irq(trigger = Pin.IRQ_FALLING)
 
 # timings and other stuff:
 how_many_nutrients = 5 # in mL
@@ -56,7 +59,7 @@ def addWater():
 #--------------------------------------------------------------------------------------------------------------------------------------
 # always loop this code over and over again
 while there_is_power:
-
+    print(callBack.tally())
     current_time = time.time() # get current timer
 
     if active_period == "yes": # whether or not we are giving the plant water for 12 hours (day-night cycle)
@@ -74,7 +77,7 @@ while there_is_power:
 
         #--------------------------------------------------------------------------------------------
         if current_time - time_last_checked >= interval: # Stops the water cycling for 12 hours if its been running for 12 hours
-            active_period = "no"
+            active_period = "yes"
             time_last_checked = current_time # resets the time we are counting to
 
             # turns on and off nutrient pump for predefined amount of time
@@ -84,5 +87,3 @@ while there_is_power:
 
         else: #if it hasnt been 12 hours yet....
             pass #do nothing!!!!
-
-
