@@ -4,8 +4,8 @@ from machine import Pin
 # pins to controll each hardware device and defines if the pins are taking in or letting out signals
 pump = Pin(0,Pin.OUT)
 sol = Pin(1,Pin.OUT)
-water = Pin(1,Pin.IN)
-nut = Pin(2,Pin.OUT)
+water = Pin(2,Pin.IN)
+nut = Pin(3,Pin.OUT)
 hall_sensor = Pin(4,Pin.IN,Pin.PULL_DOWN)
 
 callBack = hall_sensor.irq(trigger = Pin.IRQ_FALLING)
