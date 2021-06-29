@@ -68,11 +68,14 @@ try:
             main_loop = asyncio.get_event_loop()
             main_loop.create_task(mainFlowMeter.monitorFlowMeter())
 
+            pump.on()
+            sol.on()
+            hall_sensor_flow.on()
+
+
             while water.value() == 1: #keep looping this code untill water hits the water sensor
                 #keep the pump on,the solenoid valve open, and the hall sensor reading data
-                pump.on()
-                sol.on()
-                hall_sensor_flow.on()
+                pass
 
 
             main_loop.close() # stops reading from hall sensor
@@ -94,7 +97,7 @@ try:
                 sol.on()
                 timer_end = time.time()
                 if timer_end-timer_start >= 10: # error occured, drain for 4 minutes to return to normal flow
-                    time.sleep(240)
+                    time.sleep(360)
 
             time.sleep(water_drain_time) # wait predefined amount of seconds for the water to completly drain (might need trial and error)
 
