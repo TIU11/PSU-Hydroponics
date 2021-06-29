@@ -1,6 +1,5 @@
 import time
 from machine import Pin
-#import logging
 import uasyncio as asyncio
 import sys
 sys.path.append('/WaterPumps')
@@ -15,113 +14,149 @@ water = Pin(2,Pin.IN)
 nut = Pin(3,Pin.OUT)
 hall_sensor_flow = Pin(4,Pin.OUT)
 hall_sensor_data = Pin(5,Pin.IN)
+try:
+    # timings and other stuff:
+    how_many_nutrients = 5 # in mL
+    time_for_nut_pump = how_many_nutrients # peristaltic pump dispenses 1 ml per second
 
-# timings and other stuff:
-how_many_nutrients = 5 # in mL
-time_for_nut_pump = how_many_nutrients # peristaltic pump dispenses 1 ml per second
+    floodTime = 5 #* 60 # 5 minutes (in seconds), time water stays on roots of plantsbefore draining
+    floodWait =  3 #* 60 * 60 # 3 Hours (in seconds), time between floods
+    interval = 12 * 60 * 60 # 12 hours (in seconds), time between acvtive and inactive periods
+    active_period = "yes" # to give the plant water or not
+    there_is_power = True # to make the program allways run
+    water_drain_time = 14 # seconds for the water to drain from the tank (maybe improve with another sensor?)
 
-floodTime = 5 #* 60 # 5 minutes (in seconds), time water stays on roots of plantsbefore draining
-floodWait =  3 #* 60 * 60 # 3 Hours (in seconds), time between floods
-interval = 12 * 60 * 60 #  12 hours (in seconds), time between acvtive and inactive periods
-active_period = "yes" #to give the plant water or not
-there_is_power = True #to make the program allways run
+    mainFlowMeter = flowMeter(flowPin=5, rate=4.8) # to set up the hall efect flow sensor
+    mainFlowData = flowRunData() # to do calculations on our data
+    global flowCount # to make sure this variable can be accessed everythwere
+    flowCount = 0 # initializing the pulses
 
-mainFlowMeter = flowMeter(flowPin=5, rate=4.8)
-mainFlowData = flowRunData()
-global flowCount
-flowCount = 0
+    '''try:
+        f = open("data.txt","r")
+        f.close()
+    except:
+        with open("data.txt", "w") as f:
+            f.write("Liters pumped in, time it finished")
+    '''
 
 
-
-
-# turns off pumps and solinoid just to be safe
-pump.off()
-sol.off()
-
-# turns on and off nutrient pump for predefined amount of time
-nut.on()
-time.sleep(time_for_nut_pump)
-nut.off()
-
-#--------------------------------------------------------------------------------------------------------------------------------------
-time_last_checked = time.time()
-def callbackflow(p):
-    """Add on to Counter """
-    global flowCount
-    flowCount += 1
-    print("""callback count: %s""" % (flowCount))
-#--------------------------------------------------------------------------------------------------------------------------------------
-def addWater():
-    global flow_per_second
-    #keeps filling the planet container
-
-    mainFlowMeter.counterPin.irq(trigger=mainFlowMeter.counterPin.IRQ_RISING, handler=callbackflow)
-    main_loop = asyncio.get_event_loop()
-
-    main_loop.create_task(mainFlowMeter.monitorFlowMeter())
-    while water.value() == 1: #keep looping this code untill water hits the water sensor
-        #keep the pump on and the solenoid valve open
-        pump.on()
-        sol.on()
-        hall_sensor_flow.on()
-
-        '''if hall_sensor_data.value() == 1:
-            flowCount += 1'''
-
-    #turn the pump off and close the solenoid valve
-    main_loop.close()
-    print(mainFlowData.averageFlowRate())
-    '''flowCount = flowCount/(ending_time-starting_time)
-    flowCount = (flowCount* 60)/4.8'''
+    # turns off pumps and solinoid just to be safe
     pump.off()
     sol.off()
+
+
+    # turns on and off nutrient pump for predefined amount of time
+    nut.on()
+    time.sleep(time_for_nut_pump)
+    nut.off()
+
+    time_last_checked = time.time() # time that the program started
+
+    #--------------------------------------------------------------------------------------------------------------------------------------
+
+    def callbackflow(p): # function to count how many times the hall effect flow sensor rotates completly
+        global flowCount
+        flowCount += 1 # raises the counter by one when this is ran
+    #--------------------------------------------------------------------------------------------------------------------------------------
+    def addWater():
+        # keeps filling the planet container
+        try: # try to do this, but stop if there is an error
+            global flowCount
+
+            #initialize flow sensor to calculate data
+            mainFlowMeter.counterPin.irq(trigger=mainFlowMeter.counterPin.IRQ_RISING, handler=callbackflow) # when there is an interupt, run callbackflow
+            main_loop = asyncio.get_event_loop()
+            main_loop.create_task(mainFlowMeter.monitorFlowMeter())
+
+            while water.value() == 1: #keep looping this code untill water hits the water sensor
+                #keep the pump on,the solenoid valve open, and the hall sensor reading data
+                pump.on()
+                sol.on()
+                hall_sensor_flow.on()
+
+
+            main_loop.close() # stops reading from hall sensor
+            mainFlowData.totalCount = flowCount # sets the total pulse count in a python class (for data analysis)
+            print("%.3f Liters in tank" % mainFlowData.totalFlow()) # prints how many liters filled the tank
+            flowCount = 0 # resets back to 0 so we can get accurate measurements for every time the pump is on
+
+            #turn the pump off and close the solenoid valve
+            sol.off()
+            pump.off()
+            hall_sensor_flow.off()
+
+            time.sleep(floodTime) #keeps roots wet for the time we defined earlier
+
+            sol.on() #opens the solenoid valve to drain the water
+
+            timer_start = time.time()
+            while water.value() == 0: #if it over flows, keep draining
+                sol.on()
+                timer_end = time.time()
+                if timer_end-timer_start >= 10: # error occured, drain for 4 minutes to return to normal flow
+                    time.sleep(240)
+
+            time.sleep(water_drain_time) # wait predefined amount of seconds for the water to completly drain (might need trial and error)
+
+            sol.off() # close solenoid valve to stop draining
+
+            time.sleep(floodWait) # waits for a certain amount of time till this code might run again
+        except: # if something does break, catch the error and turn everything off
+            pump.off()
+            nut.off()
+            hall_sensor_flow.off()
+
+            print("big error occured")
+
+            # keeps the valve open to drain
+            while water.value() == 0:
+                sol.on()
+
+            time.sleep(120) # wait predefined amount of seconds for the water to completly drain (might need trial and error)
+
+            sol.off() # close solenoid valve to stop draining
+
+    #--------------------------------------------------------------------------------------------------------------------------------------
+    # always loop this code over and over again
+    while there_is_power:
+
+        current_time = time.time() # get current timer
+
+        if active_period == "yes": # whether or not we are giving the plant water for 12 hours (day-night cycle)
+
+            #--------------------------------------------------------------------------------------------
+            if current_time - time_last_checked >= interval: # Stops the water cycling for 12 hours if its been running for 12 hours
+                active_period = "no"
+                time_last_checked = current_time # resets the time we are counting to
+
+            else: #if it hasnt been 12 hours yet....
+                addWater() # starts water cycle that goes every 3 hours (or whatever you change it to)
+            #--------------------------------------------------------------------------------------------
+
+        else:
+
+            #--------------------------------------------------------------------------------------------
+            if current_time - time_last_checked >= interval: # Stops the water cycling for 12 hours if its been running for 12 hours
+                active_period = "yes"
+                time_last_checked = current_time # resets the time we are counting to
+
+                # turns on and off nutrient pump for predefined amount of time
+                nut.on()
+                time.sleep(time_for_nut_pump)
+                nut.off()
+
+            else: #if it hasnt been 12 hours yet....
+                pass #do nothing!!!!
+except:
+    pump.off()
+    nut.off()
     hall_sensor_flow.off()
-    # print(str(flowCount) + " l/m")
 
-    time.sleep(floodTime) #keeps roots wet for the time we defined earlier
+    print("big error occured")
 
-    sol.on() #opens the solenoid valve to drain the water
+    while water.value() == 0:
+        sol.on()
 
-    time.sleep(13) #wait 35 seconds for the water to completly drain
+    time.sleep(120) #wait predefined amount of seconds for the water to completly drain (might need trial and error)
 
     sol.off() #close solenoid valve to stop draining
-
-    time.sleep(floodWait) #waits for a certain amount of time till this code might run again
-
-
-
-main_loop = asyncio.get_event_loop()
-
-#load flow monitor task
-main_loop.create_task(mainFlowMeter.monitorFlowMeter())#--------------------------------------------------------------------------------------------------------------------------------------
-# always loop this code over and over again
-while there_is_power:
-
-    current_time = time.time() # get current timer
-
-    if active_period == "yes": # whether or not we are giving the plant water for 12 hours (day-night cycle)
-
-        #--------------------------------------------------------------------------------------------
-        if current_time - time_last_checked >= interval: # Stops the water cycling for 12 hours if its been running for 12 hours
-            active_period = "no"
-            time_last_checked = current_time # resets the time we are counting to
-
-        else: #if it hasnt been 12 hours yet....
-            addWater() # starts water cycle that goes every 3 hours (or whatever you change it to)
-        #--------------------------------------------------------------------------------------------
-
-    else:
-
-        #--------------------------------------------------------------------------------------------
-        if current_time - time_last_checked >= interval: # Stops the water cycling for 12 hours if its been running for 12 hours
-            active_period = "yes"
-            time_last_checked = current_time # resets the time we are counting to
-
-            # turns on and off nutrient pump for predefined amount of time
-            nut.on()
-            time.sleep(time_for_nut_pump)
-            nut.off()
-
-        else: #if it hasnt been 12 hours yet....
-            pass #do nothing!!!!
-
