@@ -78,9 +78,6 @@ try:
             
             
             print("%.3f Liters in tank" % mainFlowData.totalFlow()) # prints how many liters filled the tank
-            #sys.stdout.write("%.3f Liters in tank\n" % mainFlowData.totalFlow())
-            
-            
             
             
             flowCount = 0 # resets back to 0 so we can get accurate measurements for every time the pump is on
