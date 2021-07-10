@@ -66,20 +66,26 @@ try:
             pump.on()
             sol.on()
             hall_sensor_flow.on()
+            
+            flow_time_start = time.time() #counting how long each fill takes
 
 
             while water.value() == 1: #keep looping this code untill water hits the water sensor
                 #keep the pump on,the solenoid valve open, and the hall sensor reading data
                 pass
 
-
+            print("{} PIT".format(time.time()-flow_time_start)) #print the time it took to pump in water
+            
+            #calculating and sending flowrate per minute 
+            AFR = (450/time.time()-flow_time_start)/60
+            print("{} AFR".format(AFR))
+            
             main_loop.close() # stops reading from hall sensor
-            mainFlowData.totalCount = flowCount # sets the total pulse count in a python class (for data analysis)
+            mainFlowData.totalCount = flowCount # sets the total pulse count in a python class (for data analysis)  
             
-            
-            print("%.3f Liters in tank" % mainFlowData.totalFlow()) # prints how many liters filled the tank
-            
-            
+            print("{} GIT".format(mainFlowData.totalFlow())) # prints how many liters filled the tank
+            #sys.stdout.write("%.3f Liters in tank\n" % mainFlowData.totalFlow())
+                        
             flowCount = 0 # resets back to 0 so we can get accurate measurements for every time the pump is on
 
             #turn the pump off and close the solenoid valve
@@ -87,6 +93,7 @@ try:
             pump.off()
             hall_sensor_flow.off()
             
+            water_on_sensor_start = time.time()
 
             time.sleep(floodTime) #keeps roots wet for the time we defined earlier
 
@@ -98,9 +105,15 @@ try:
                 timer_end = time.time()
                 if timer_end-timer_start >= 10: # error occured, drain for 4 minutes to return to normal flow
                     time.sleep(360)
-
+            
             time.sleep(water_drain_time) # wait predefined amount of seconds for the water to completly drain (might need trial and error)
-
+            
+            #calculating and sending flowrate per minute 
+            AFR = (450/time.time()-water_on_sensor_start)/60
+            print("{} AFR".format(AFR))
+            
+            print("{} WST".format(time.time()-water_on_sensor_start))
+            
             sol.off() # close solenoid valve to stop draining
 
             time.sleep(floodWait) # waits for a certain amount of time till this code might run again
